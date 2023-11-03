@@ -2,6 +2,7 @@
 
 import random
 import sys
+import matplotlib.pyplot as plt
 
 def drawBoard(board):
      # This function prints out the board that it was passed. Returns None.
@@ -322,6 +323,140 @@ def getComputerMove(board, computerTile):
 ##             bestScore = score
 ##     return bestMove
 
+def getRandomMove(board, tile):
+    possibleMoves = getValidMoves(board, tile)
+    #print(possibleMoves)
+    random.shuffle(possibleMoves)
+    for x, y in possibleMoves:
+        return [x, y]
+
+
+class Tree:
+    def __init__(self):
+        self.nodes = []
+        self.position = []
+        self.visits = 0
+        self.reward = 0
+    
+    def is_leaf(self):
+        if self.nodes == []:
+            return True
+        else:
+            return False
+
+    def set_position(self, x, y):
+        self.position = [x, y]
+
+    def add_nodes(self, positions):
+        for x, y in positions:
+            new_node = Tree()
+            new_node.set_position(x, y)
+            self.nodes.append(new_node)
+    
+    def add_visit(self):
+        self.visits += 1
+
+    def add_reward(self):
+        self.reward += 1
+
+    def get_strongest_node(self):
+        strength = 0
+        strongest = None
+        for node in self.nodes:
+            if not node.is_leaf():
+                node_strength = node.reward / node.visits
+                if node_strength > strength:
+                    strongest = node
+                    strength = node_strength
+        return strongest
+
+    def get_random_node(self):
+        possibleNodes = self.nodes
+        random.shuffle(possibleNodes)
+        return possibleNodes[0]
+
+
+def getMCTSMove(board, tile, tree):
+    if tree.is_leaf():
+            possibleMoves = getValidMoves(board, tile)
+            tree.add_nodes(possibleMoves)
+            return 'rollout'
+
+    if random.randint(0, 9) > 0:
+        #exploit
+        strongest = tree.get_strongest_node()
+        if strongest == None:
+            node = tree.get_random_node()
+        else:
+            node = strongest
+
+    else:
+        #explore
+        node = tree.get_random_node()
+    node.add_visit()
+    return node
+        
+
+def MCTS_train():
+    MCTS_tree = Tree()
+    mainBoard = getNewBoard()
+    playerTile = 'X'
+    computerTile = 'O'
+    game_wins = 0
+    success_rate = []
+    for game in range(10001):
+        if game % 100 == 0:
+            #Every 100 games, reset game wins to recalculate success rate
+            success_rate.append(game_wins / 100)
+            game_wins = 0
+        resetBoard(mainBoard)
+        turn = 'player'
+        rollout = False
+        node = MCTS_tree
+        played_nodes = []
+        while True:
+            if turn == 'player':
+                if rollout == False:
+                    node = getMCTSMove(mainBoard, playerTile, node)
+                    if node == 'rollout':
+                        rollout = True
+                        move = getRandomMove(mainBoard, playerTile)
+                    else:
+                        move = node.position
+                        played_nodes.append(node)
+                else:
+                    move = getRandomMove(mainBoard, playerTile)
+                #move = getPlayerMove(mainBoard, 'X')
+                makeMove(mainBoard, playerTile, move[0], move[1])
+                if getValidMoves(mainBoard, computerTile) == []:
+                    #break
+                    if getValidMoves(mainBoard, playerTile) == []:
+                        break
+                    else:
+                        turn = 'player'
+                else:
+                    turn = 'computer'
+            else:
+                x, y = getComputerMove(mainBoard, computerTile)
+                makeMove(mainBoard, computerTile, x, y)
+
+                if getValidMoves(mainBoard, playerTile) == []:
+                    #break
+                    if getValidMoves(mainBoard, computerTile) == []:
+                        break
+                    else:
+                        turn = 'computer'
+                else:
+                    turn = 'player'
+        scores = getScoreOfBoard(mainBoard)
+        if scores[playerTile] > scores[computerTile]:
+            # Win
+            for node in played_nodes:
+                node.add_reward()
+            game_wins += 1
+    plt.plot(range(1, len(success_rate)+1), success_rate)
+    plt.show()
+
 
 
 
@@ -333,7 +468,7 @@ def showPoints(playerTile, computerTile):
 
 
 print('Welcome to Reversi!')
-
+'''
 while True:
      # Reset the board and game.
      mainBoard = getNewBoard()
@@ -401,3 +536,5 @@ while True:
 
      if not playAgain():
          break
+'''
+MCTS_train()
